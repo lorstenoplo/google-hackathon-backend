@@ -7,11 +7,12 @@ class TextToSpeechRequest(BaseModel):
     Schema for text-to-speech request
     """
     text: str = Field(..., description="The text to convert to speech")
-    voice: Optional[str] = Field("default", description="Voice ID to use")
+    voice: Optional[str] = Field("en-US-Wavenet-D", description="Voice ID to use")  # Set a valid default
     rate: Optional[float] = Field(1.0, description="Speech rate (0.5 to 2.0)")
+    output_filename: Optional[str] = Field("output.mp3", description="Output filename")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "text": "This is a sample text to convert to speech.",
                 "voice": "default",
@@ -26,6 +27,7 @@ class TextToSpeechResponse(BaseModel):
     """
     success: bool
     message: str
+    audio_url: Optional[str] = None
 
 
 class ImageToTextRequest(BaseModel):
@@ -34,7 +36,7 @@ class ImageToTextRequest(BaseModel):
     Note: This is for documentation, actual file upload uses multipart/form-data
     """
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "file": "binary_image_data"
             }
@@ -47,6 +49,8 @@ class ImageToTextResponse(BaseModel):
     """
     text: str
     confidence: Optional[float] = None
+    explanation: Optional[str] = None
+    audio_path: Optional[str] = None
 
 
 class PdfToMarkdownRequest(BaseModel):
@@ -55,7 +59,7 @@ class PdfToMarkdownRequest(BaseModel):
     Note: This is for documentation, actual file upload uses multipart/form-data
     """
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "file": "binary_pdf_data"
             }
@@ -69,7 +73,7 @@ class MarkdownToPdfRequest(BaseModel):
     markdown: str = Field(..., description="Markdown text to convert to PDF")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "markdown": "# Title\n\nThis is a paragraph with **bold** and *italic* text."
             }
@@ -89,7 +93,7 @@ class SpeechToTextRequest(BaseModel):
     Note: This is for documentation, actual file upload uses multipart/form-data
     """
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "file": "binary_audio_data"
             }

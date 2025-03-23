@@ -1,6 +1,11 @@
+import os
+import json
+
 from pydantic_settings import BaseSettings
 from typing import List
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings(BaseSettings):
     """
@@ -13,13 +18,14 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
-    
-    # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
+    CORS_ORIGINS: List[str] = json.loads(os.environ.get("CORS_ORIGINS", "[]"))
     
     # Backend URLs
-    BACKEND_URL: str = "http://localhost:8000"
+    BACKEND_URL: str = os.environ.get("BACKEND_URL", "http://localhost:8000")
+
+    GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
+
+    MISTRAL_API_KEY: str = os.environ.get("MISTRAL_API_KEY", "")
     
     class Config:
         env_file = ".env"

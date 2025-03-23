@@ -6,7 +6,6 @@ router = APIRouter()
 
 @router.post(
     "/text-to-speech",
-    response_class=Response,
     status_code=status.HTTP_200_OK,
     responses={
         200: {"content": {"audio/mpeg": {}}}
@@ -19,13 +18,15 @@ async def convert_text_to_speech(
     Convert text to speech and return an audio file
     """
     service = TextToSpeechService()
-    audio_data = service.convert_text_to_speech(
+    audio_url = service.convert_text_to_speech(
         text=request.text,
         voice=request.voice,
-        rate=request.rate
+        rate=request.rate,
+        output_filename= request.output_filename
     )
-    
-    return Response(
-        content=audio_data,
-        media_type="audio/mpeg"
+
+    return TextToSpeechResponse(
+        success=True,
+        message="Text converted to speech",
+        audio_url=audio_url
     )

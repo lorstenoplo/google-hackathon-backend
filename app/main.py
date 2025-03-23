@@ -1,8 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.routes.text_to_speech import text_to_speech, image_to_text, pdf_converter, speech_to_text
+from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text
 from app.core.config import settings
+import os
+
+# Replace with your actual JSON file name
+json_file_name = r"D:\Nishanth\dyslexia-reader\backend\app\keys\tts.json"
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file_name
+os.environ["GOOGLE_CLOUD_PROJECT"] = "flowing-elf-454116-m4"
+os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+
+print("Authentication setup complete!")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

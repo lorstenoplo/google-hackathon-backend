@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, status, Response
 from app.models.schemas import PdfToMarkdownResponse, MarkdownToPdfRequest
 from app.services.pdf_converter import PdfConverterService
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ async def convert_pdf_to_markdown(
     """
     Convert PDF to Markdown
     """
-    service = PdfConverterService()
+    service = PdfConverterService(api_key=settings.MISTRAL_API_KEY)
     
     # Read file content
     contents = await file.read()
@@ -41,7 +42,7 @@ async def convert_markdown_to_pdf(
     """
     Convert Markdown to PDF
     """
-    service = PdfConverterService()
+    service = PdfConverterService(api_key=settings.MISTRAL_API_KEY)
     
     # Convert Markdown to PDF
     pdf_data = service.markdown_to_pdf(request.markdown)

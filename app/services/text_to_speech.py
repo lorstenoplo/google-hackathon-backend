@@ -1,51 +1,81 @@
-from typing import Optional, Union
-from io import BytesIO
-import os
-import tempfile
+from typing import Optional
+from google.cloud import texttospeech, storage
 
-# This is a placeholder. In a real implementation, 
-# you would use a library like pyttsx3, gTTS, or AWS Polly
 class TextToSpeechService:
     """
-    Service for converting text to speech
+    Service for converting text to speech using Google Cloud Text-to-Speech
     """
+    
+    def __init__(self, bucket_name="ttsfile"):
+        """
+        Initialize the service with Google Cloud clients
+        
+        Args:
+            bucket_name: The name of the Google Cloud Storage bucket to use
+        """
+        self.tts_client = texttospeech.TextToSpeechClient()
+        self.storage_client = storage.Client()
+        self.bucket_name = bucket_name
     
     def convert_text_to_speech(
         self, 
         text: str, 
-        voice: str = "default",
-        rate: float = 1.0
-    ) -> bytes:
+        voice: str = "en-US",
+        rate: float = 1.0,
+        output_filename: Optional[str] = "output.mp3"
+    ) -> str:
         """
-        Convert text to speech
-        
-        Args:
-            text: The text to convert
-            voice: The voice ID to use
-            rate: The speech rate (0.5 to 2.0)
-            
-        Returns:
-            bytes: The audio data in MP3 format
+        Convert text to speech using Google Cloud Text-to-Speech.
         """
-        # In a real implementation, you would use a TTS library
-        # For illustration, we'll create a placeholder implementation
-        
         try:
-            # This is where you'd implement the actual TTS conversion
-            # For example, with gTTS:
-            # from gtts import gTTS
-            # tts = gTTS(text=text, lang='en', slow=False)
-            # mp3_fp = BytesIO()
-            # tts.write_to_fp(mp3_fp)
-            # return mp3_fp.getvalue()
+            # Ensure a valid voice ID
+            if not voice or voice == "default":
+                voice = "en-US-Wavenet-D"  # Change to a valid Google Cloud voice ID
+
+            # Create synthesis input
+            synthesis_input = texttospeech.SynthesisInput(text=text)
+
+            print("Converting text to speech...", text, synthesis_input)
             
-            # Placeholder implementation
-            # In a real application, replace with actual TTS implementation
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
-                temp_path = temp_file.name
+            # Configure voice
+            voice_params = texttospeech.VoiceSelectionParams(
+                language_code="en-US",  # Use appropriate language code
+                name=voice,  # Use the corrected voice ID
+                ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+            )
             
-            # Return dummy audio data
-            return b'DUMMY_AUDIO_DATA'
+            # Configure audio
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3,
+                speaking_rate=rate
+            )
+            
+            # Generate speech
+            response = self.tts_client.synthesize_speech(
+                input=synthesis_input, 
+                voice=voice_params, 
+                audio_config=audio_config
+            )
+            
+            # Otherwise, save and upload the file
+            with open(output_filename, "wb") as out:
+                out.write(response.audio_content)
+                
+            print(f"Audio saved as {output_filename}")
+            
+            # Upload to Google Cloud Storage
+            bucket = self.storage_client.bucket(self.bucket_name)
+            blob = bucket.blob(output_filename)
+            blob.upload_from_filename(output_filename)
+            
+            # Make the file public
+            blob.make_public()
+            
+            # Return the public URL
+            public_url = blob.public_url
+            print(f"Public URL: {public_url}")
+            
+            return public_url
             
         except Exception as e:
             # Log the error
