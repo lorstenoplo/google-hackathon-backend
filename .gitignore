@@ -10,4 +10,4 @@ __pycache__/
 
 keys/
 keys
-app/keys/tts.json
+app/keys/google_auth.json

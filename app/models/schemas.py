@@ -9,7 +9,7 @@ class TextToSpeechRequest(BaseModel):
     text: str = Field(..., description="The text to convert to speech")
     voice: Optional[str] = Field("en-US-Wavenet-D", description="Voice ID to use")  # Set a valid default
     rate: Optional[float] = Field(1.0, description="Speech rate (0.5 to 2.0)")
-    output_filename: Optional[str] = Field("output.mp3", description="Output filename")
+    output_filename: Optional[str] = Field(None, description="Output filename")
     
     class Config:
         json_schema_extra = {

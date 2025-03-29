@@ -1,20 +1,22 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text
 from app.core.config import settings
-import os
 
-# Replace with your actual JSON file name
-json_file_name = r"D:\Nishanth\dyslexia-reader\backend\app\keys\tts.json"
+json_file_name = settings.SERVICE_ACCOUNT_FILE
+# Check if the file exists
+if not os.path.isfile(json_file_name):
+    raise FileNotFoundError(f"Service account file '{json_file_name}' not found.")
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_file_name
-os.environ["GOOGLE_CLOUD_PROJECT"] = "flowing-elf-454116-m4"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "true"
+os.environ["GOOGLE_CLOUD_PROJECT"] = settings.GOOGLE_CLOUD_PROJECT
+os.environ["GOOGLE_CLOUD_LOCATION"] = settings.GOOGLE_CLOUD_LOCATION
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = settings.GOOGLE_GENAI_USE_VERTEXAI
 
 print("Authentication setup complete!")
-
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

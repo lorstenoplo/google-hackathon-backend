@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, status, Form
 from app.models.schemas import ImageToTextResponse
-from app.services.image_to_text import GeminiImageService, ImageToTextService
+from app.services.image_to_text import ImageToTextService
+from app.services.gemini_image_service import GeminiVisionService
 from app.core.config import settings
+from app.services.text_to_speech import TextToSpeechService
 
 router = APIRouter()
 
@@ -35,10 +37,11 @@ async def convert_image_to_text(
         elif method == "gemini":
             try:
                 print("Initializing Gemini service...")
-                service = GeminiImageService(api_key=settings.GEMINI_API_KEY)
+                service = GeminiVisionService(project_id=settings.GOOGLE_CLOUD_PROJECT)
                 
                 print("Processing image with Gemini...")
-                result = service.process_image(contents)
+                local_text_to_speech_service = TextToSpeechService()
+                result = service.process_image(contents, text_to_speech_service=local_text_to_speech_service)
                 
                 print("Gemini processing complete, returning response...")
                 return ImageToTextResponse(

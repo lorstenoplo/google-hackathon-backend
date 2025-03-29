@@ -1,4 +1,5 @@
 from typing import Optional
+import uuid
 from google.cloud import texttospeech, storage
 
 class TextToSpeechService:
@@ -6,7 +7,7 @@ class TextToSpeechService:
     Service for converting text to speech using Google Cloud Text-to-Speech
     """
     
-    def __init__(self, bucket_name="ttsfile"):
+    def __init__(self, bucket_name="read-ease"):
         """
         Initialize the service with Google Cloud clients
         
@@ -20,17 +21,26 @@ class TextToSpeechService:
     def convert_text_to_speech(
         self, 
         text: str, 
-        voice: str = "en-US",
+        voice: str = "default",
         rate: float = 1.0,
-        output_filename: Optional[str] = "output.mp3"
+        output_filename: Optional[str] = None
     ) -> str:
         """
-        Convert text to speech using Google Cloud Text-to-Speech.
+        Convert text to speech using Google Cloud Text-to-Speech and upload directly to Cloud Storage.
+        
+        Args:
+            text: The text to convert to speech
+            voice: The voice ID to use
+            rate: The speaking rate
+            output_filename: Optional filename for the output file. If not provided, a random UUID will be used.
+            
+        Returns:
+            The public URL of the uploaded audio file
         """
         try:
             # Ensure a valid voice ID
             if not voice or voice == "default":
-                voice = "en-US-Wavenet-D"  # Change to a valid Google Cloud voice ID
+                voice = "en-IN-Chirp-HD-F"  # Default to a specific voice ID if none is provided
 
             # Create synthesis input
             synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -39,7 +49,7 @@ class TextToSpeechService:
             
             # Configure voice
             voice_params = texttospeech.VoiceSelectionParams(
-                language_code="en-US",  # Use appropriate language code
+                language_code="en-US", 
                 name=voice,  # Use the corrected voice ID
                 ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
             )
@@ -57,22 +67,29 @@ class TextToSpeechService:
                 audio_config=audio_config
             )
             
-            # Otherwise, save and upload the file
-            with open(output_filename, "wb") as out:
-                out.write(response.audio_content)
-                
-            print(f"Audio saved as {output_filename}")
+            # Generate random filename if not provided
+            if not output_filename:
+                output_filename = f"{uuid.uuid4()}.mp3"
             
-            # Upload to Google Cloud Storage
+            # Ensure path includes the required folder structure
+            storage_path = f"generated/audio/{output_filename}"
+            
+            # Upload directly to Google Cloud Storage without saving locally
             bucket = self.storage_client.bucket(self.bucket_name)
-            blob = bucket.blob(output_filename)
-            blob.upload_from_filename(output_filename)
+            blob = bucket.blob(storage_path)
+            
+            # Upload the audio content directly from memory
+            blob.upload_from_string(
+                response.audio_content,
+                content_type="audio/mp3"
+            )
             
             # Make the file public
             blob.make_public()
             
             # Return the public URL
             public_url = blob.public_url
+            print(f"Audio uploaded to: {storage_path}")
             print(f"Public URL: {public_url}")
             
             return public_url

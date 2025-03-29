@@ -19,13 +19,18 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: List[str] = json.loads(os.environ.get("CORS_ORIGINS", "[]"))
-    
     # Backend URLs
     BACKEND_URL: str = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
     GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
-
     MISTRAL_API_KEY: str = os.environ.get("MISTRAL_API_KEY", "")
+
+    SERVICE_ACCOUNT_FILE: str = os.environ.get("SERVICE_ACCOUNT_FILE", "")
+    GOOGLE_CLOUD_PROJECT: str = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+    GOOGLE_CLOUD_LOCATION: str = os.environ.get("GOOGLE_CLOUD_LOCATION", "")
+    GOOGLE_GENAI_USE_VERTEXAI: str = os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "")
+
+    TESSERACT_PATH: str = os.environ.get("TESSERACT_PATH", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
     
     class Config:
         env_file = ".env"
