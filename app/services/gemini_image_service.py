@@ -111,15 +111,16 @@ class GeminiVisionService:
             # Generate audio URL if text_to_speech_service is provided
             audio_url = ""
             if text_to_speech_service and 'explanation' in gemini_result:
-                audio_filename = f"explanation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
-                audio_url = text_to_speech_service.convert_text_to_speech(text=gemini_result['explanation'], output_filename=audio_filename)
+                audio_url = text_to_speech_service.convert_text_to_speech(text=gemini_result['explanation'], voice="en-IN-Chirp-HD-F", language_code="en-IN")
             
             # Combine results
             result = {
-                **ocr_result,
-                **gemini_result,
                 'image_url': gcs_url,
-                'audio_url': audio_url
+                'audio_path': audio_url,
+                'confidence_score': ocr_result.get('confidence_score', 0.9),
+                'extracted_text': ocr_result.get('full_text', ''),
+                'gemini_response': gemini_result.get('gemini_response', ''),
+                'explanation': gemini_result.get('explanation', ''),
             }
             
             return result

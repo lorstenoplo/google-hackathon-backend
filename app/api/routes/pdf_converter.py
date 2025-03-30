@@ -1,5 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, status, Response
-from app.models.schemas import PdfToMarkdownResponse, MarkdownToPdfRequest
+from fastapi import APIRouter, UploadFile, File, status, HTTPException
+from app.models.schemas import PdfToMarkdownResponse
 from app.services.pdf_converter import PdfConverterService
 from app.core.config import settings
 
@@ -10,44 +10,23 @@ router = APIRouter()
     response_model=PdfToMarkdownResponse,
     status_code=status.HTTP_200_OK
 )
-async def convert_pdf_to_markdown(
-    file: UploadFile = File(...)
-):
+async def convert_pdf_to_markdown(file: UploadFile = File(...)):
     """
-    Convert PDF to Markdown
+    Convert uploaded PDF file to Markdown using Mistral's OCR service.
     """
-    service = PdfConverterService(api_key=settings.MISTRAL_API_KEY)
-    
-    # Read file content
-    contents = await file.read()
-    
-    # Convert PDF to Markdown
-    markdown_text = service.pdf_to_markdown(contents)
-    
-    return PdfToMarkdownResponse(
-        markdown=markdown_text
-    )
+    try:
+        service = PdfConverterService(api_key=settings.MISTRAL_API_KEY)
 
-@router.post(
-    "/markdown-to-pdf",
-    response_class=Response,
-    status_code=status.HTTP_200_OK,
-    responses={
-        200: {"content": {"application/pdf": {}}}
-    }
-)
-async def convert_markdown_to_pdf(
-    request: MarkdownToPdfRequest
-):
-    """
-    Convert Markdown to PDF
-    """
-    service = PdfConverterService(api_key=settings.MISTRAL_API_KEY)
-    
-    # Convert Markdown to PDF
-    pdf_data = service.markdown_to_pdf(request.markdown)
-    
-    return Response(
-        content=pdf_data,
-        media_type="application/pdf"
-    )
+        # Read file content
+        pdf_data = await file.read()
+
+        if not pdf_data:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+        # Convert PDF to Markdown
+        response_dict = service.pdf_to_markdown(pdf_data)
+
+        return PdfToMarkdownResponse(response_dict=response_dict)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")

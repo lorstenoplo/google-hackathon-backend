@@ -23,7 +23,8 @@ class TextToSpeechService:
         text: str, 
         voice: str = "default",
         rate: float = 1.0,
-        output_filename: Optional[str] = None
+        output_filename: Optional[str] = None,
+        language_code:str = "en-IN"
     ) -> str:
         """
         Convert text to speech using Google Cloud Text-to-Speech and upload directly to Cloud Storage.
@@ -49,7 +50,7 @@ class TextToSpeechService:
             
             # Configure voice
             voice_params = texttospeech.VoiceSelectionParams(
-                language_code="en-US", 
+                language_code=language_code, 
                 name=voice,  # Use the corrected voice ID
                 ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
             )

@@ -28,11 +28,13 @@ async def convert_image_to_text(
             service = ImageToTextService()
             
             # Process image
-            text, confidence = service.extract_text_from_image(contents)
+            text, confidence, audio_url = service.extract_text_from_image(contents)
             
             return ImageToTextResponse(
                 text=text,
-                confidence=confidence
+                confidence=confidence,
+                explanation="Text extracted using Tesseract OCR.",
+                audio_path=audio_url
             )
         elif method == "gemini":
             try:
@@ -48,7 +50,7 @@ async def convert_image_to_text(
                     text=result['extracted_text'],
                     confidence=result['confidence_score'],
                     explanation=result['explanation'],
-                    audio_path=result['audio_path']
+                    audio_path=result['audio_path'],
                 )
             except Exception as e:
                 print(f"Error in Gemini processing: {str(e)}")

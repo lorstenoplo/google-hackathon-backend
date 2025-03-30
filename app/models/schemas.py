@@ -84,7 +84,7 @@ class PdfToMarkdownResponse(BaseModel):
     """
     Schema for PDF to Markdown response
     """
-    markdown: str
+    response_dict: dict = Field(..., description="Response dictionary from Mistral OCR API")
 
 
 class SpeechToTextRequest(BaseModel):
