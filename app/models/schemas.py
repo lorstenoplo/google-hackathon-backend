@@ -106,3 +106,11 @@ class SpeechToTextResponse(BaseModel):
     """
     text: str
     confidence: Optional[float] = None
+
+
+class TextCorrectionRequest(BaseModel):
+    text: str
+
+class TextCorrectionResponse(BaseModel):
+    corrected_text: str
+    original_text: str
