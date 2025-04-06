@@ -1,0 +1,1 @@
+This accessibility-focused application aims to help users with dyslexia by offering features like text-to-speech, OCR for extracting text from images and PDFs, phonetic spell correction, and dyslexia-friendly font conversion. Users can upload files, interact through voice, and download converted PDFs for easier reading.
