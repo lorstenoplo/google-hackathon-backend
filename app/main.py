@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text, spell_correct
+from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text, spell_correct, transcribe_video
 from app.core.config import settings
 
 json_file_name = settings.SERVICE_ACCOUNT_FILE
@@ -41,6 +41,14 @@ app.include_router(speech_to_text.router, prefix="/api", tags=["Speech to Text"]
 app.include_router(
     spell_correct.router, prefix="/api", tags=["Spell Correct"]
 )
+app.include_router(transcribe_video.router, prefix="/api", tags=["Transcribe Video"])
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """
+    Health check endpoint to verify API is running
+    """
+    return {"status": "healthy"}
 
 @app.get("/", tags=["Root"])
 async def read_root():

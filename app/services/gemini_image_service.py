@@ -197,7 +197,7 @@ class GeminiVisionService:
         """
         try:
             # Initialize the Gemini model
-            model = GenerativeModel("gemini-pro-vision")
+            model = GenerativeModel("gemini-2.5-flash-preview-05-20")
             
             # Create prompt with extracted text if available
             context = f"The OCR system extracted the following text:\n{extracted_text}\n\n" if extracted_text else ""

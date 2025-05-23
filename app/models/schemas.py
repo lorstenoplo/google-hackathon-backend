@@ -114,3 +114,13 @@ class TextCorrectionRequest(BaseModel):
 class TextCorrectionResponse(BaseModel):
     corrected_text: str
     original_text: str
+
+class TranscriptionResponse(BaseModel):
+    task_id: str
+    message: str
+
+class TranscriptionResult(BaseModel):
+    task_id: str
+    status: str
+    transcript: Optional[str] = None
+    error: Optional[str] = None
