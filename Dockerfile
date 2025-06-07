@@ -4,27 +4,25 @@ FROM python:3.10
 # Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy dependency files
 COPY requirements.txt .
 
-COPY .env .env
-
-# Install dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
+# Copy rest of the application
 COPY . .
 
-# Set environment variable for Tesseract path
+# Environment variables
 ENV TESSERACT_CMD=/usr/bin/tesseract
 
-# Expose port (FastAPI default is 8000)
+# Expose port
 EXPOSE 8000
 
-# Start the FastAPI app
+# Run the app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

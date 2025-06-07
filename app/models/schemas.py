@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, HttpUrl
+from typing import Optional, List, Any, Dict
 
 
 class TextToSpeechRequest(BaseModel):
@@ -124,3 +124,20 @@ class TranscriptionResult(BaseModel):
     status: str
     transcript: Optional[str] = None
     error: Optional[str] = None
+
+class AccessibilityRequest(BaseModel):
+    url: HttpUrl
+    summarize: bool = True
+
+class ViolationResponse(BaseModel):
+    id: str
+    description: str
+    impact: str
+    help: str
+    affected_elements: int
+
+class AccessibilityResponse(BaseModel):
+    url: str
+    violations: List[Dict[str, Any]]
+    summary: Optional[str] = None
+    total_violations: int

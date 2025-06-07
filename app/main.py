@@ -1,10 +1,17 @@
+import sys
+import asyncio
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text, spell_correct, transcribe_video
+from app.api.routes import text_to_speech, image_to_text, pdf_converter, speech_to_text, spell_correct, transcribe_video, web_accessibility
 from app.core.config import settings
+
 
 json_file_name = settings.SERVICE_ACCOUNT_FILE
 # Check if the file exists
@@ -42,6 +49,7 @@ app.include_router(
     spell_correct.router, prefix="/api", tags=["Spell Correct"]
 )
 app.include_router(transcribe_video.router, prefix="/api", tags=["Transcribe Video"])
+app.include_router(web_accessibility.router, prefix="/api", tags=["Web Accessibility"])
 
 @app.get("/health", tags=["Health"])
 async def health_check():

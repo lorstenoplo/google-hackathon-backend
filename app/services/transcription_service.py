@@ -1,9 +1,8 @@
 import os
-import subprocess
-import whisper
 from typing import Dict, Any, Optional
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, Part
+import mimetypes
 
 class ProcessingService:
     """Service for processing different types of media files."""
@@ -19,135 +18,184 @@ class ProcessingService:
         # Initialize Vertex AI
         if self.project_id:
             vertexai.init(project=self.project_id, location=self.location)
-            self.gemini_model = GenerativeModel("gemini-2.5-flash-preview-05-20")
+            self.gemini_model = GenerativeModel("gemini-2.0-flash-exp")  # Use latest model with video support
         else:
             self.gemini_model = None
-            print("Warning: No project_id provided. Summarization will be disabled.")
+            print("Warning: No project_id provided. Direct video processing will be disabled.")
     
-    def extract_audio(self, file_path: str, audio_format: str = "wav") -> Optional[str]:
+    def _is_supported_file(self, file_path: str) -> bool:
+        """Check if file is supported by Gemini for processing."""
+        # Gemini supports these formats
+        supported_formats = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v',
+                           '.mp3', '.wav', '.aac', '.ogg', '.flac', '.m4a']
+        return os.path.splitext(file_path)[1].lower() in supported_formats
+    
+    def _get_mime_type(self, file_path: str) -> str:
+        """Get MIME type for the file."""
+        mime_type, _ = mimetypes.guess_type(file_path)
+        if mime_type:
+            return mime_type
+        
+        # Fallback for common audio/video formats
+        ext = os.path.splitext(file_path)[1].lower()
+        mime_map = {
+            '.mp4': 'video/mp4',
+            '.avi': 'video/x-msvideo',
+            '.mov': 'video/quicktime',
+            '.mkv': 'video/x-matroska',
+            '.webm': 'video/webm',
+            '.flv': 'video/x-flv',
+            '.m4v': 'video/x-m4v',
+            '.mp3': 'audio/mpeg',
+            '.wav': 'audio/wav',
+            '.aac': 'audio/aac',
+            '.ogg': 'audio/ogg',
+            '.flac': 'audio/flac',
+            '.m4a': 'audio/mp4'
+        }
+        return mime_map.get(ext, 'application/octet-stream')
+    
+    def _process_with_gemini_direct(self, file_path: str, prompt: str, **options) -> str:
         """
-        Extract audio from video file.
+        Process audio/video directly with Gemini.
         
         Args:
-            file_path: Path to the video file
-            audio_format: Output audio format (default: wav)
+            file_path: Path to the audio/video file
+            prompt: Prompt for Gemini
+            **options: Additional options
             
         Returns:
-            Path to the extracted audio file, or None if extraction failed
+            Generated response text
         """
-        # Create unique temp filename
-        filename = os.path.basename(file_path)
-        base_name = os.path.splitext(filename)[0]
-        audio_path = f"{self.temp_dir}/{base_name}_audio.{audio_format}"
+        if not self.gemini_model:
+            raise Exception("Gemini model not initialized. Please provide project_id during initialization.")
         
         try:
-            subprocess.run([
-                "ffmpeg", "-y", "-i", file_path,
-                "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", audio_path
-            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return audio_path
-        except subprocess.CalledProcessError as e:
-            print(f"Error extracting audio: {e}")
-            return None
+            # Read the media file
+            with open(file_path, 'rb') as f:
+                media_data = f.read()
+            
+            # Get MIME type
+            mime_type = self._get_mime_type(file_path)
+            
+            # Create media part
+            media_part = Part.from_data(media_data, mime_type=mime_type)
+            
+            # Generate content with media and prompt
+            response = self.gemini_model.generate_content([media_part, prompt])
+            
+            return response.text
+            
+        except Exception as e:
+            raise Exception(f"Gemini direct media processing error: {str(e)}")
+
     
     def transcribe(self, file_path: str, model_size: str = "base", **options) -> Dict[str, Any]:
         """
-        Transcribe audio or video file.
+        Transcribe audio or video file using Gemini directly.
         
         Args:
             file_path: Path to the file to transcribe
-            model_size: Size of the Whisper model to use (tiny, base, small, medium, large)
+            model_size: Ignored (kept for API compatibility)
             **options: Additional options for transcription
             
         Returns:
             Dictionary containing transcription results
         """
-        # Check if file is video or audio
-        file_ext = os.path.splitext(file_path)[1].lower()
+        if not self.gemini_model:
+            raise Exception("Gemini model not initialized. Please provide project_id during initialization.")
         
-        # Video formats that need audio extraction
-        video_formats = ['.mp4', '.avi', '.mov', '.mkv', '.webm']
-        
-        if file_ext in video_formats:
-            # Extract audio first
-            audio_path = self.extract_audio(file_path)
-            if not audio_path:
-                return {"error": "Failed to extract audio from video"}
-        else:
-            # Assume file is already audio
-            audio_path = file_path
+        if not self._is_supported_file(file_path):
+            supported_formats = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v',
+                               '.mp3', '.wav', '.aac', '.ogg', '.flac', '.m4a']
+            return {"error": f"Unsupported file format. Supported formats: {', '.join(supported_formats)}"}
         
         try:
-            # Load whisper model
-            model = whisper.load_model(model_size)
+            # Use Gemini directly for transcription
+            prompt = """Please provide a complete and accurate transcription of all spoken content in this audio/video file. 
             
-            # Process transcription
-            transcription_options = {
-                "language": options.get("language", None),
-                "task": options.get("task", "transcribe"),
-            }
+            Format the response as follows:
+            - Include all dialogue and speech
+            - Use proper punctuation and paragraph breaks
+            - Indicate speaker changes if multiple speakers are present (e.g., Speaker 1:, Speaker 2:)
+            - Do not include descriptions of visual elements or background sounds, only transcribe the spoken words
+            - If there are multiple languages, transcribe each in their original language
             
-            # Filter None values
-            transcription_options = {k: v for k, v in transcription_options.items() if v is not None}
+            Transcription:"""
             
-            # Run transcription
-            result = model.transcribe(audio_path, **transcription_options)
+            transcript_text = self._process_with_gemini_direct(file_path, prompt, **options)
             
-            # Clean up temp file if it was created
-            if audio_path != file_path and os.path.exists(audio_path):
-                os.remove(audio_path)
-            
-            # Format response
+            # Format response to match expected output structure
             response = {
-                "transcript": result["text"],
-                "segments": result.get("segments", []),
-                "language": result.get("language", None),
+                "transcript": transcript_text.strip(),
+                "segments": [],  # Gemini doesn't provide timing segments
+                "language": options.get("language", "auto-detected"),
+                "method": "gemini_direct"
             }
             
             # Optionally save transcript to file
             if options.get("save_transcript", False):
                 transcript_path = os.path.splitext(file_path)[0] + "_transcript.txt"
                 with open(transcript_path, "w", encoding="utf-8") as f:
-                    f.write(result["text"])
+                    f.write(transcript_text)
                 response["transcript_path"] = transcript_path
             
             return response
-        
+            
         except Exception as e:
-            # Ensure cleanup even on error
-            if audio_path != file_path and os.path.exists(audio_path):
-                os.remove(audio_path)
-            raise Exception(f"Transcription error: {str(e)}")
+            raise Exception(f"Gemini transcription error: {str(e)}")
     
     def translate(self, file_path: str, model_size: str = "base", **options) -> Dict[str, Any]:
         """
-        Translate audio or video file.
+        Translate audio or video file using Gemini directly.
         
         Args:
             file_path: Path to the file to translate
-            model_size: Size of the Whisper model to use
+            model_size: Ignored (kept for API compatibility)
             **options: Additional options like target language
             
         Returns:
             Dictionary containing translation results
         """
-        # Set task to translate
-        options["task"] = "translate"
+        if not self.gemini_model:
+            raise Exception("Gemini model not initialized. Please provide project_id during initialization.")
         
-        # Reuse transcription logic but with translate task
-        return self.transcribe(file_path, model_size, **options)
+        if not self._is_supported_file(file_path):
+            supported_formats = ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.m4v',
+                               '.mp3', '.wav', '.aac', '.ogg', '.flac', '.m4a']
+            return {"error": f"Unsupported file format. Supported formats: {', '.join(supported_formats)}"}
+        
+        target_language = options.get("target_language", "English")
+        
+        try:
+            prompt = f"""Please provide a complete translation of all spoken content in this audio/video file to {target_language}.
+            
+            Requirements:
+            - Translate all dialogue and speech accurately
+            - Maintain the meaning and context
+            - Use natural, fluent {target_language}
+            - Use proper punctuation and paragraph breaks
+            - Indicate speaker changes if multiple speakers are present (e.g., Speaker 1:, Speaker 2:)
+            - Do not translate background sounds or visual descriptions, only spoken words
+            
+            Translation:"""
+            
+            translation_text = self._process_with_gemini_direct(file_path, prompt, **options)
+            
+            return {
+                "transcript": translation_text.strip(),
+                "translation": translation_text.strip(),
+                "target_language": target_language,
+                "segments": [],
+                "method": "gemini_direct"
+            }
+            
+        except Exception as e:
+            raise Exception(f"Gemini translation error: {str(e)}")
     
     def _generate_summary_with_gemini(self, transcript: str, summary_type: str = "general", **options) -> str:
         """
-        Generate summary using Gemini model.
-        
-        Args:
-            transcript: Text to summarize
-            summary_type: Type of summary (general, bullet_points, key_insights, etc.)
-            **options: Additional options like max_length, focus_areas
-            
-        Returns:
-            Generated summary text
+        Generate summary using Gemini model from transcript text.
         """
         if not self.gemini_model:
             raise Exception("Gemini model not initialized. Please provide project_id during initialization.")
@@ -192,13 +240,14 @@ class ProcessingService:
     
     def summarize(self, file_path: str, model_size: str = "base", **options) -> Dict[str, Any]:
         """
-        Transcribe and then summarize content using Gemini.
+        Transcribe and summarize content using Gemini directly for videos.
         
         Args:
             file_path: Path to the file to summarize
-            model_size: Size of the Whisper model to use
+            model_size: Size of the Whisper model to use (for fallback)
             **options: Additional options for summarization
                 - summary_type: "general", "bullet_points", "key_insights", "executive", "detailed", "action_items"
+                - use_gemini_direct: Use Gemini directly for video processing (default: True)
                 - max_length: Maximum length in words
                 - focus_areas: List of areas to focus on
                 - target_audience: Target audience for the summary
@@ -207,7 +256,108 @@ class ProcessingService:
         Returns:
             Dictionary containing transcription and summarization results
         """
-        # First transcribe the content
+        use_gemini_direct = options.get("use_gemini_direct", True)
+        summary_type = options.get("summary_type", "general")
+        
+        # Check if file is video and we should use Gemini directly
+        if use_gemini_direct and self.gemini_model:
+            try:
+                # Build comprehensive prompt for direct video processing
+                summary_prompts = {
+                    "general": "Please watch this video and provide both a complete transcription and a concise comprehensive summary.",
+                    "bullet_points": "Please watch this video and provide both a complete transcription and a bullet-point summary highlighting the main topics.",
+                    "key_insights": "Please watch this video and provide both a complete transcription and extract the key insights and important conclusions.",
+                    "executive": "Please watch this video and provide both a complete transcription and an executive summary for decision-makers.",
+                    "detailed": "Please watch this video and provide both a complete transcription and a detailed summary preserving important context.",
+                    "action_items": "Please watch this video and provide both a complete transcription and identify any action items or next steps."
+                }
+                
+                base_prompt = summary_prompts.get(summary_type, summary_prompts["general"])
+                
+                # Add additional instructions
+                additional_instructions = []
+                if options.get("max_length"):
+                    additional_instructions.append(f"Keep the summary under {options['max_length']} words.")
+                if options.get("focus_areas"):
+                    focus_list = ", ".join(options["focus_areas"])
+                    additional_instructions.append(f"Focus particularly on these areas: {focus_list}")
+                if options.get("target_audience"):
+                    additional_instructions.append(f"Tailor the summary for: {options['target_audience']}")
+                
+                full_prompt = base_prompt
+                if additional_instructions:
+                    full_prompt += " " + " ".join(additional_instructions)
+                
+                full_prompt += """
+
+Please format your response as follows:
+TRANSCRIPTION:
+[Complete transcription here]
+
+SUMMARY:
+[Summary here]"""
+                
+                # Process with Gemini directly
+                result_text = self._process_with_gemini_direct(file_path, full_prompt, **options)
+                
+                # Parse the response to extract transcription and summary
+                parts = result_text.split("SUMMARY:")
+                if len(parts) == 2:
+                    transcript_part = parts[0].replace("TRANSCRIPTION:", "").strip()
+                    summary_part = parts[1].strip()
+                else:
+                    # Fallback parsing
+                    lines = result_text.split('\n')
+                    transcript_lines = []
+                    summary_lines = []
+                    current_section = "transcript"
+                    
+                    for line in lines:
+                        if "SUMMARY" in line.upper():
+                            current_section = "summary"
+                            continue
+                        elif "TRANSCRIPTION" in line.upper():
+                            current_section = "transcript"
+                            continue
+                        
+                        if current_section == "transcript":
+                            transcript_lines.append(line)
+                        else:
+                            summary_lines.append(line)
+                    
+                    transcript_part = '\n'.join(transcript_lines).strip()
+                    summary_part = '\n'.join(summary_lines).strip()
+                
+                response = {
+                    "transcript": transcript_part,
+                    "summary": summary_part,
+                    "summary_type": summary_type,
+                    "language": "auto-detected",
+                    "segments": [],
+                    "method": "gemini_direct"
+                }
+                
+                # Optionally save summary to file
+                if options.get("save_summary", False):
+                    summary_path = os.path.splitext(file_path)[0] + f"_summary_{summary_type}.txt"
+                    with open(summary_path, "w", encoding="utf-8") as f:
+                        f.write(f"Summary Type: {summary_type}\n")
+                        f.write("="*50 + "\n\n")
+                        f.write(summary_part)
+                        f.write(f"\n\n{'='*50}\n")
+                        f.write("Original Transcript:\n")
+                        f.write(transcript_part)
+                    response["summary_path"] = summary_path
+                
+                return response
+                
+            except Exception as e:
+                print(f"Gemini direct summarization failed: {e}")
+                print("Falling back to traditional transcription + summarization...")
+                # Fall back to traditional method
+                pass
+        
+        # Traditional method: First transcribe, then summarize
         transcription_result = self.transcribe(file_path, model_size, **options)
         
         if "error" in transcription_result:
@@ -215,7 +365,6 @@ class ProcessingService:
         
         try:
             # Generate summary using Gemini
-            summary_type = options.get("summary_type", "general")
             summary = self._generate_summary_with_gemini(
                 transcription_result["transcript"], 
                 summary_type, 
@@ -227,7 +376,8 @@ class ProcessingService:
                 "summary": summary,
                 "summary_type": summary_type,
                 "language": transcription_result.get("language"),
-                "segments": transcription_result.get("segments", [])
+                "segments": transcription_result.get("segments", []),
+                "method": transcription_result.get("method", "whisper") + "_+_gemini_summary"
             }
             
             # Optionally save summary to file
@@ -249,7 +399,8 @@ class ProcessingService:
                 "transcript": transcription_result["transcript"],
                 "error": f"Summarization failed: {str(e)}",
                 "language": transcription_result.get("language"),
-                "segments": transcription_result.get("segments", [])
+                "segments": transcription_result.get("segments", []),
+                "method": transcription_result.get("method", "whisper")
             }
     
     def batch_summarize(self, file_paths: list, model_size: str = "base", **options) -> Dict[str, Any]:
@@ -276,10 +427,11 @@ class ProcessingService:
     
     def cleanup(self):
         """Clean up temporary files."""
-        for filename in os.listdir(self.temp_dir):
-            file_path = os.path.join(self.temp_dir, filename)
-            try:
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-            except Exception as e:
-                print(f"Error deleting {file_path}: {e}")
+        if os.path.exists(self.temp_dir):
+            for filename in os.listdir(self.temp_dir):
+                file_path = os.path.join(self.temp_dir, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except Exception as e:
+                    print(f"Error deleting {file_path}: {e}")
